@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Adversarial Shield — Face Protector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #050608;
+      --bg2:      #090b0f;
+      --surface:  #0d1018;
+      --surface2: #111520;
+      --border:   #1a2033;
+      --border2:  #243050;
+      --accent:   #00ff88;
+      --accent2:  #00d4ff;
+      --red:      #ff3b5c;
+      --yellow:   #ffd23f;
+      --text:     #d8e0f0;
+      --muted:    #4a5580;
+      --muted2:   #6a7aa0;
+      --radius:   6px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Scanlines overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.08) 2px,
+        rgba(0,0,0,0.08) 4px
+      );
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    /* ── Noise texture ── */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 998;
+      opacity: 0.4;
+    }
+
+    /* ── Header ── */
+    header {
+      position: relative;
+      width: 100%;
+      padding: 0;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(0,255,136,0.03) 0%, transparent 100%);
+      overflow: hidden;
+    }
+
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 40px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .logo-mark {
+      width: 42px;
+      height: 42px;
+      border: 1.5px solid var(--accent);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .logo-mark::before {
+      content: '⬡';
+      font-size: 1.4rem;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .logo-mark::after {
+      content: '';
+      position: absolute;
+      inset: 3px;
+      border: 1px solid rgba(0,255,136,0.2);
+      border-radius: 2px;
+    }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .logo-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.7rem;
+      letter-spacing: 3px;
+      color: var(--text);
+      line-height: 1;
+    }
+    .logo-title span { color: var(--accent); }
+    .logo-sub {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.6rem;
+      color: var(--muted);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .model-badge {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.62rem;
+      padding: 5px 12px;
+      border-radius: 2px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .model-badge.facenet {
+      border-color: rgba(0,255,136,0.4);
+      color: var(--accent);
+      background: rgba(0,255,136,0.04);
+    }
+
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    /* ── Ticker tape ── */
+    .ticker {
+      width: 100%;
+      background: rgba(0,255,136,0.04);
+      border-bottom: 1px solid rgba(0,255,136,0.08);
+      padding: 6px 0;
+      overflow: hidden;
+    }
+    .ticker-track {
+      display: flex;
+      gap: 60px;
+      animation: ticker-scroll 30s linear infinite;
+      white-space: nowrap;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.62rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+    }
+    .ticker-track span { color: var(--accent); }
+    @keyframes ticker-scroll {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+
+    /* ── Main layout ── */
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 40px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    /* ── Section label ── */
+    .section-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.62rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .section-label::before {
+      content: '//';
+      color: var(--accent);
+    }
+
+    /* ── Upload zone ── */
+    .upload-zone {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 64px 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.25s, background 0.25s;
+      position: relative;
+      background: var(--surface);
+      overflow: hidden;
+    }
+
+    .upload-zone::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, rgba(0,255,136,0.03) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .upload-zone:hover::before,
+    .upload-zone.drag-over::before { opacity: 1; }
+
+    .upload-zone:hover,
+    .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(13,16,24,1);
+    }
+
+    .upload-zone.has-file {
+      border-color: rgba(0,255,136,0.4);
+      background: rgba(0,255,136,0.02);
+      padding: 32px 40px;
+    }
+
+    .upload-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+
+    .upload-icon {
+      width: 56px; height: 56px;
+      margin: 0 auto 20px;
+      border: 1.5px solid var(--border2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      color: var(--muted2);
+      transition: border-color 0.25s, color 0.25s;
+    }
+    .upload-zone:hover .upload-icon,
+    .upload-zone.drag-over .upload-icon { border-color: var(--accent); color: var(--accent); }
+
+    .upload-primary {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .upload-secondary {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+    .upload-secondary strong { color: var(--accent2); font-weight: 400; }
+
+    .file-info {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--accent);
+    }
+    .file-info .fi-name { color: var(--text); font-weight: 600; }
+    .file-info .fi-size { color: var(--muted); }
+
+    /* ── Preview strip ── */
+    #uploadPreview {
+      display: none;
+      margin-top: 16px;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+    }
+    #uploadPreview img {
+      max-height: 120px;
+      border-radius: 4px;
+      border: 1px solid var(--border2);
+      filter: brightness(0.9);
+    }
+
+    /* ── Controls ── */
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 20px;
+      align-items: end;
+    }
+
+    .ctrl-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+    }
+
+    .ctrl-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.62rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .ctrl-val {
+      color: var(--accent);
+      font-size: 0.85rem;
+    }
+
+    .slider-wrap {
+      position: relative;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      -webkit-appearance: none;
+      height: 3px;
+      border-radius: 2px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 2px;
+      background: var(--accent);
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 0 8px rgba(0,255,136,0.5);
+      transition: box-shadow 0.2s;
+    }
+    input[type="range"]:hover::-webkit-slider-thumb {
+      box-shadow: 0 0 14px rgba(0,255,136,0.8);
+    }
+
+    .slider-ticks {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.58rem;
+      color: var(--muted);
+    }
+
+    /* ── Protect button ── */
+    .btn-protect {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: var(--radius);
+      padding: 0 36px;
+      height: 100%;
+      min-height: 80px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.3rem;
+      letter-spacing: 3px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .btn-protect::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+    }
+    .btn-protect:hover {
+      background: #00ffaa;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 30px rgba(0,255,136,0.3);
+    }
+    .btn-protect:active { transform: translateY(0); }
+    .btn-protect:disabled {
+      background: var(--border);
+      color: var(--muted);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    .btn-protect:disabled::before { display: none; }
+
+    /* ── Progress ── */
+    .progress-wrap {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      gap: 16px;
+      align-items: center;
+    }
+    .progress-wrap.visible { display: flex; }
+
+    .pgd-vis {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .pgd-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+    }
+    .pgd-bar-track {
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .pgd-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      animation: pgd-animate 2s ease-in-out infinite;
+      width: 60%;
+    }
+    @keyframes pgd-animate {
+      0% { width: 10%; opacity: 0.6; }
+      50% { width: 85%; opacity: 1; }
+      100% { width: 10%; opacity: 0.6; }
+    }
+
+    .progress-terminal {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 12px 16px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--muted2);
+      line-height: 1.7;
+    }
+    .progress-terminal .t-line { display: flex; gap: 10px; }
+    .progress-terminal .t-prompt { color: var(--accent); flex-shrink: 0; }
+    .progress-terminal .t-text { color: var(--muted2); }
+    .progress-terminal .cursor {
+      display: inline-block;
+      width: 6px; height: 12px;
+      background: var(--accent);
+      animation: blink 1s step-start infinite;
+      vertical-align: middle;
+    }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+    /* ── Results ── */
+    .results { display: none; flex-direction: column; gap: 24px; }
+    .results.visible { display: flex; animation: fade-in 0.4s ease; }
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Image comparison ── */
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+    }
+
+    .img-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .img-panel.protected { border-color: rgba(0,255,136,0.3); }
+    .img-panel.protected .img-panel-head { border-bottom-color: rgba(0,255,136,0.2); }
+
+    .img-panel-head {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+    .img-panel.protected .img-panel-head { color: var(--accent); }
+
+    .panel-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+    .img-panel.protected .panel-dot { background: var(--accent); }
+
+    .img-panel-body {
+      flex: 1;
+      background: #030405;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+      padding: 8px;
+      position: relative;
+    }
+
+    .img-panel img {
+      max-width: 100%;
+      border-radius: 2px;
+      display: block;
+    }
+
+    .img-panel-foot {
+      padding: 10px 14px;
+      border-top: 1px solid var(--border);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--muted);
+    }
+
+    /* ── Noise diff overlay ── */
+    .noise-label {
+      position: absolute;
+      top: 8px; left: 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.55rem;
+      color: var(--yellow);
+      background: rgba(0,0,0,0.7);
+      padding: 2px 6px;
+      border-radius: 2px;
+    }
+
+    /* ── Verdict ── */
+    .verdict {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 22px 26px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      position: relative;
+      overflow: hidden;
+    }
+    .verdict::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--muted);
+    }
+    .verdict.success::before { background: var(--accent); }
+    .verdict.warning::before { background: var(--yellow); }
+    .verdict.danger::before { background: var(--red); }
+
+    .verdict-icon {
+      font-size: 1.8rem;
+      flex-shrink: 0;
+    }
+    .verdict-body { flex: 1; }
+    .verdict-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.2rem;
+      letter-spacing: 2px;
+      color: var(--text);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .verdict.success .verdict-title { color: var(--accent); }
+    .verdict.warning .verdict-title { color: var(--yellow); }
+    .verdict-sub {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--muted2);
+      line-height: 1.5;
+    }
+
+    .btn-download {
+      background: transparent;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 10px 22px;
+      border-radius: var(--radius);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .btn-download:hover {
+      background: var(--accent);
+      color: #000;
+    }
+
+    /* ── Metrics ── */
+    .metrics-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .metrics-header {
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .metrics-header::before { content: '//'; color: var(--accent); }
+
+    .metrics-grid {
+      padding: 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    .metric-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 14px 16px;
+      transition: border-color 0.2s;
+    }
+    .metric-card:hover { border-color: var(--border2); }
+    .metric-card.good { border-color: rgba(0,255,136,0.25); }
+    .metric-card.warn { border-color: rgba(255,210,63,0.25); }
+    .metric-card.bad  { border-color: rgba(255,59,92,0.25); }
+
+    .m-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.58rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+    }
+    .m-value {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.6rem;
+      letter-spacing: 1px;
+      color: var(--text);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .m-value.good { color: var(--accent); }
+    .m-value.warn { color: var(--yellow); }
+    .m-value.bad  { color: var(--red); }
+    .m-sub {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.58rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    /* ── Sim bar ── */
+    .sim-bar-section {
+      padding: 0 20px 20px;
+    }
+    .sim-bar-header {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.62rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sim-bar-val { color: var(--text); font-size: 0.78rem; }
+    .sim-bar-track {
+      height: 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      position: relative;
+      overflow: visible;
+    }
+    .sim-bar-fill {
+      height: 100%;
+      border-radius: 1px;
+      transition: width 0.8s ease, background 0.3s;
+    }
+    .sim-threshold {
+      position: absolute;
+      left: 50%;
+      top: -6px;
+      bottom: -6px;
+      width: 2px;
+      background: rgba(255,210,63,0.7);
+    }
+    .sim-threshold::after {
+      content: '0.5';
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.55rem;
+      color: var(--yellow);
+      white-space: nowrap;
+    }
+
+    /* ── Info panel ── */
+    .info-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .info-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+    }
+    .info-card-icon {
+      font-size: 1.2rem;
+      margin-bottom: 8px;
+    }
+    .info-card-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1rem;
+      letter-spacing: 2px;
+      color: var(--accent2);
+      margin-bottom: 4px;
+    }
+    .info-card-text {
+      font-size: 0.78rem;
+      color: var(--muted2);
+      line-height: 1.55;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 20px 40px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.6rem;
+      color: var(--muted);
+      text-align: center;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    footer a { color: var(--accent2); text-decoration: none; }
+
+    /* ── Glitch animation ── */
+    @keyframes glitch {
+      0%, 95%, 100% { clip-path: none; transform: none; }
+      96% { clip-path: inset(30% 0 40% 0); transform: translate(-4px, 0); }
+      97% { clip-path: inset(60% 0 10% 0); transform: translate(4px, 0); }
+      98% { clip-path: inset(10% 0 80% 0); transform: translate(-2px, 0); }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      main { padding: 24px 20px 60px; }
+      .controls { grid-template-columns: 1fr; }
+      .btn-protect { min-height: 52px; }
+      .comparison-grid { grid-template-columns: 1fr 1fr; }
+      .info-bar { grid-template-columns: 1fr; }
+      .header-inner { padding: 18px 20px; }
+    }
+    @media (max-width: 600px) {
+      .comparison-grid { grid-template-columns: 1fr; }
+      .metrics-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Header ────────────────────────────────────────────────── -->
+  <header>
+    <div class="header-inner">
+      <div class="logo-mark"></div>
+      <div class="logo-text">
+        <div class="logo-title">Adversarial <span>Shield</span></div>
+        <div class="logo-sub">Face Privacy Protection System · v3</div>
+      </div>
+      <div class="header-right">
+        <div class="status-dot"></div>
+        <div class="model-badge {% if model_type == 'facenet' %}facenet{% endif %}" id="modelBadge">
+          {% if model_type == 'facenet' %}FaceNet / VGGFace2{% else %}ResNet50 Fallback{% endif %}
+        </div>
+        <div class="model-badge" style="color: var(--muted2); border-color: var(--border);">
+          {{ device }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Ticker -->
+    <div class="ticker">
+      <div class="ticker-track" id="tickerTrack">
+        <span>PGD · Madry 2017</span>
+        &nbsp;·&nbsp;
+        <span>FGSM · Goodfellow 2014</span>
+        &nbsp;·&nbsp;
+        <span>FaceNet Embedding Attack</span>
+        &nbsp;·&nbsp;
+        <span>L∞ Perturbation Budget</span>
+        &nbsp;·&nbsp;
+        <span>Cosine Distance Maximization</span>
+        &nbsp;·&nbsp;
+        <span>MTCNN Face Alignment</span>
+        &nbsp;·&nbsp;
+        <span>Identity Cloaking</span>
+        &nbsp;·&nbsp;
+        <span>VGGFace2 · 3.3M faces</span>
+        &nbsp;·&nbsp;
+        <span>512-d Embedding Space</span>
+        &nbsp;·&nbsp;
+        <!-- Duplicate for infinite scroll -->
+        <span>PGD · Madry 2017</span>
+        &nbsp;·&nbsp;
+        <span>FGSM · Goodfellow 2014</span>
+        &nbsp;·&nbsp;
+        <span>FaceNet Embedding Attack</span>
+        &nbsp;·&nbsp;
+        <span>L∞ Perturbation Budget</span>
+        &nbsp;·&nbsp;
+        <span>Cosine Distance Maximization</span>
+        &nbsp;·&nbsp;
+        <span>MTCNN Face Alignment</span>
+        &nbsp;·&nbsp;
+        <span>Identity Cloaking</span>
+        &nbsp;·&nbsp;
+        <span>VGGFace2 · 3.3M faces</span>
+        &nbsp;·&nbsp;
+        <span>512-d Embedding Space</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Main ──────────────────────────────────────────────────── -->
+  <main>
+
+    <!-- Info bar -->
+    <div class="info-bar">
+      <div class="info-card">
+        <div class="info-card-icon">🎯</div>
+        <div class="info-card-title">Identity Attack</div>
+        <div class="info-card-text">Maximises cosine distance in 512-d face embedding space — not just object classification.</div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-icon">👁</div>
+        <div class="info-card-title">Invisible Noise</div>
+        <div class="info-card-text">L∞ bounded perturbations keep PSNR above 40 dB — imperceptible to human vision.</div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-icon">🛡</div>
+        <div class="info-card-title">Real Protection</div>
+        <div class="info-card-text">Similarity below 0.5 defeats face matching systems. Higher ε = stronger cloaking.</div>
+      </div>
+    </div>
+
+    <!-- Upload -->
+    <div>
+      <div class="section-label">01 — Upload Face Photo</div>
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="fileInput" accept="image/*" />
+        <div id="uploadEmpty">
+          <div class="upload-icon">📷</div>
+          <div class="upload-primary">Drop image here or click to browse</div>
+          <div class="upload-secondary">JPG · PNG · WebP · Max 16 MB · <strong>Face must be visible</strong></div>
+        </div>
+        <div id="uploadReady" style="display:none;">
+          <div class="file-info">
+            <span>✓</span>
+            <span class="fi-name" id="fileName">—</span>
+            <span class="fi-size" id="fileSize">—</span>
+          </div>
+          <div id="uploadPreview" style="display:block; margin-top:16px;">
+            <img id="previewImg" src="" alt="Preview" style="max-height:100px;" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div>
+      <div class="section-label">02 — Configure Attack</div>
+      <div class="controls">
+        <!-- Epsilon -->
+        <div class="ctrl-block">
+          <div class="ctrl-label">
+            <span>Perturbation Budget (ε)</span>
+            <span class="ctrl-val" id="epsilonVal">0.020</span>
+          </div>
+          <div class="slider-wrap">
+            <input type="range" id="epsilonSlider"
+              min="0.001" max="0.15" step="0.001" value="0.02" />
+            <div class="slider-ticks">
+              <span>0.001</span><span>Invisible</span><span>Visible</span><span>0.15</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Steps -->
+        <div class="ctrl-block">
+          <div class="ctrl-label">
+            <span>PGD Iterations</span>
+            <span class="ctrl-val" id="stepsVal">10</span>
+          </div>
+          <div class="slider-wrap">
+            <input type="range" id="stepsSlider"
+              min="1" max="50" step="1" value="10" />
+            <div class="slider-ticks">
+              <span>1</span><span>Fast</span><span>Strong</span><span>50</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Run -->
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button class="btn-protect" id="protectBtn" disabled style="min-height:60px;">
+            Run Shield
+          </button>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-family:'Space Mono',monospace;font-size:0.62rem;color:var(--muted);padding:0 4px;">
+            <input type="checkbox" id="verifyCheck" style="accent-color:var(--accent);width:14px;height:14px;cursor:pointer;" />
+            Verify vs 5 models
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="progressWrap">
+      <div class="pgd-vis">
+        <div class="pgd-label">
+          <span id="progressLabel">Initializing attack…</span>
+          <span id="progressStep"></span>
+        </div>
+        <div class="pgd-bar-track">
+          <div class="pgd-bar-fill"></div>
+        </div>
+        <div class="progress-terminal" style="margin-top:12px;">
+          <div class="t-line">
+            <span class="t-prompt">$</span>
+            <span class="t-text" id="termText">Loading model…</span>
+            <span class="cursor"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="results" id="results">
+
+      <!-- Images -->
+      <div>
+        <div class="section-label">03 — Results</div>
+        <div class="comparison-grid">
+
+          <div class="img-panel">
+            <div class="img-panel-head">
+              <div class="panel-dot"></div>
+              Original Face (crop)
+            </div>
+            <div class="img-panel-body">
+              <img id="origImg" src="" alt="Original" />
+            </div>
+            <div class="img-panel-foot">Face crop sent to FaceNet</div>
+          </div>
+
+          <div class="img-panel">
+            <div class="img-panel-head">
+              <div class="panel-dot"></div>
+              Perturbation ×10
+            </div>
+            <div class="img-panel-body" style="position:relative">
+              <span class="noise-label">amplified ×10</span>
+              <img id="noiseImg" src="" alt="Noise" />
+            </div>
+            <div class="img-panel-foot">Adversarial noise on face crop (invisible at 1×)</div>
+          </div>
+
+          <div class="img-panel protected">
+            <div class="img-panel-head">
+              <div class="panel-dot"></div>
+              Protected Full Image
+            </div>
+            <div class="img-panel-body">
+              <img id="protImg" src="" alt="Protected" />
+            </div>
+            <div class="img-panel-foot">Full photo — safe to post anywhere online</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Verdict -->
+      <div class="verdict" id="verdict">
+        <div class="verdict-icon" id="verdictIcon">⏳</div>
+        <div class="verdict-body">
+          <div class="verdict-title" id="verdictTitle">Analyzing…</div>
+          <div class="verdict-sub" id="verdictSub"></div>
+        </div>
+        <button class="btn-download" id="downloadBtn">⬇ Download Protected</button>
+      </div>
+
+      <!-- Metrics -->
+      <div class="metrics-panel">
+        <div class="metrics-header">Attack Metrics</div>
+        <div class="metrics-grid" id="metricsGrid"></div>
+        <div class="sim-bar-section" id="simBarSection" style="display:none;">
+          <div class="sim-bar-header">
+            <span>Cosine Similarity — lower means better protection</span>
+            <span class="sim-bar-val" id="simBarLabel">—</span>
+          </div>
+          <div class="sim-bar-track">
+            <div class="sim-bar-fill" id="simBarFill"></div>
+            <div class="sim-threshold"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Multi-model verification -->
+      <div class="metrics-panel" id="verifyPanel" style="display:none;">
+        <div class="metrics-header">Multi-Model Verification</div>
+        <div id="verifyGrid" style="padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;"></div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ── Footer ─────────────────────────────────────────────────── -->
+  <footer>
+    Adversarial Shield v3 · FGSM (Goodfellow 2014) · PGD (Madry 2017) · FaceNet (Schroff 2015) · Fawkes-inspired (Cao 2020)
+    &nbsp;·&nbsp; <a href="https://sandlab.cs.uchicago.edu/fawkes/" target="_blank">Fawkes Project</a>
+  </footer>
+
+<script>
+  /* ────────────────────────────────────────────────────────── */
+  const $ = id => document.getElementById(id);
+
+  const uploadZone    = $('uploadZone');
+  const fileInput     = $('fileInput');
+  const protectBtn    = $('protectBtn');
+  const epsilonSlider = $('epsilonSlider');
+  const epsilonVal    = $('epsilonVal');
+  const stepsSlider   = $('stepsSlider');
+  const stepsVal      = $('stepsVal');
+  const progressWrap  = $('progressWrap');
+  const results       = $('results');
+
+  let selectedFile       = null;
+  let lastProtectedB64   = null;
+  let lastOrigB64        = null;
+
+  /* ── Sliders ───────────────────────────────────────────── */
+  epsilonSlider.addEventListener('input', () => {
+    epsilonVal.textContent = parseFloat(epsilonSlider.value).toFixed(3);
+  });
+  stepsSlider.addEventListener('input', () => {
+    stepsVal.textContent = stepsSlider.value;
+  });
+
+  /* ── Upload zone ───────────────────────────────────────── */
+  uploadZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    uploadZone.classList.add('drag-over');
+  });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('image/')) setFile(f);
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) setFile(fileInput.files[0]);
+  });
+
+  function setFile(f) {
+    selectedFile = f;
+    protectBtn.disabled = false;
+    uploadZone.classList.add('has-file');
+
+    $('uploadEmpty').style.display = 'none';
+    $('uploadReady').style.display = 'block';
+    $('fileName').textContent = f.name;
+    $('fileSize').textContent = `${(f.size / 1024).toFixed(0)} KB`;
+
+    const reader = new FileReader();
+    reader.onload = e => { $('previewImg').src = e.target.result; };
+    reader.readAsDataURL(f);
+
+    results.classList.remove('visible');
+  }
+
+  /* ── Terminal messages ──────────────────────────────────── */
+  const termMsgs = [
+    'Loading InceptionResnetV1 weights…',
+    'Running MTCNN face detection…',
+    'Computing original 512-d embedding…',
+    'Initializing PGD adversarial loop…',
+    'Step 1/{n}: computing gradient…',
+    'Applying L∞ projection…',
+    'Measuring cosine distance…',
+    'Finalizing protected image…',
+  ];
+
+  let termIdx = 0;
+  let termTimer = null;
+
+  function startTerminal(steps) {
+    termIdx = 0;
+    const msgs = termMsgs.map(m => m.replace('{n}', steps));
+    clearInterval(termTimer);
+    termTimer = setInterval(() => {
+      termIdx = (termIdx + 1) % msgs.length;
+      $('termText').textContent = msgs[termIdx];
+    }, 600);
+  }
+  function stopTerminal() { clearInterval(termTimer); }
+
+  /* ── Protect ────────────────────────────────────────────── */
+  protectBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+
+    const eps   = parseFloat(epsilonSlider.value);
+    const steps = parseInt(stepsSlider.value);
+
+    protectBtn.disabled = true;
+    progressWrap.classList.add('visible');
+    results.classList.remove('visible');
+
+    startTerminal(steps);
+
+    const doVerify = $('verifyCheck').checked;
+
+    const form = new FormData();
+    form.append('file',    selectedFile);
+    form.append('epsilon', eps);
+    form.append('steps',   steps);
+    form.append('verify',  doVerify ? '1' : '0');
+
+    $('progressLabel').textContent = doVerify
+      ? `Running MI-FGSM (${steps} steps, ε=${eps.toFixed(3)}) + 5-model verify…`
+      : `Running MI-FGSM (${steps} steps, ε=${eps.toFixed(3)})…`;
+
+    try {
+      const resp = await fetch('/protect', { method: 'POST', body: form });
+      const data = await resp.json();
+
+      if (data.error) throw new Error(data.error);
+
+      stopTerminal();
+      $('termText').textContent = 'Done.';
+
+      lastProtectedB64 = data.protected_b64;
+      lastOrigB64      = data.original_b64;
+
+      // Original face crop (for display only)
+      $('origImg').src = `data:image/png;base64,${data.original_b64}`;
+      // Full protected image (this is what gets downloaded)
+      $('protImg').src = `data:image/png;base64,${data.protected_b64}`;
+
+      // Noise: diff between original face crop and attacked face crop (same 160×160)
+      renderNoiseImage(data.original_b64, data.face_attacked_b64 || data.protected_b64);
+
+      renderVerdict(data);
+      renderMetrics(data);
+      renderVerifyResults(data.verify_results || []);
+
+      results.classList.add('visible');
+      progressWrap.classList.remove('visible');
+
+      // Scroll to results
+      setTimeout(() => results.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+
+    } catch (err) {
+      stopTerminal();
+      $('termText').textContent = `Error: ${err.message}`;
+      progressWrap.classList.remove('visible');
+      alert(`Error: ${err.message}`);
+    } finally {
+      protectBtn.disabled = false;
+    }
+  });
+
+  /* ── Noise visualization ───────────────────────────────── */
+  function renderNoiseImage(origB64, protB64) {
+    const canvas = document.createElement('canvas');
+    const origImg = new Image();
+    const protImg = new Image();
+    let loaded = 0;
+
+    function tryRender() {
+      loaded++;
+      if (loaded < 2) return;
+      canvas.width  = origImg.naturalWidth;
+      canvas.height = origImg.naturalHeight;
+      const ctx = canvas.getContext('2d');
+
+      ctx.drawImage(origImg, 0, 0);
+      const origData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(protImg, 0, 0);
+      const protData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      const noise = ctx.createImageData(canvas.width, canvas.height);
+      for (let i = 0; i < origData.data.length; i += 4) {
+        noise.data[i]   = Math.min(255, Math.max(0, (protData.data[i]   - origData.data[i])   * 10 + 128));
+        noise.data[i+1] = Math.min(255, Math.max(0, (protData.data[i+1] - origData.data[i+1]) * 10 + 128));
+        noise.data[i+2] = Math.min(255, Math.max(0, (protData.data[i+2] - origData.data[i+2]) * 10 + 128));
+        noise.data[i+3] = 255;
+      }
+      ctx.putImageData(noise, 0, 0);
+      $('noiseImg').src = canvas.toDataURL('image/png');
+    }
+
+    origImg.onload = tryRender;
+    protImg.onload = tryRender;
+    origImg.src = `data:image/png;base64,${origB64}`;
+    protImg.src = `data:image/png;base64,${protB64}`;
+  }
+
+  /* ── Verdict ────────────────────────────────────────────── */
+  function renderVerdict(data) {
+    const v     = $('verdict');
+    const icon  = $('verdictIcon');
+    const title = $('verdictTitle');
+    const sub   = $('verdictSub');
+
+    if (data.model_type === 'facenet') {
+      const sim  = data.metrics.cosine_similarity;
+      const prot = data.metrics.protected;
+
+      if (prot) {
+        v.className   = 'verdict success';
+        icon.textContent = '🛡';
+        title.textContent = 'Identity Successfully Cloaked';
+        sub.textContent = `Cosine similarity dropped to ${sim.toFixed(3)} — below the 0.5 recognition threshold. Face matching systems will not recognise you.`;
+      } else {
+        v.className   = 'verdict warning';
+        icon.textContent = '⚠️';
+        title.textContent = 'Partial Protection — Increase Epsilon';
+        sub.textContent = `Similarity is still ${sim.toFixed(3)} (threshold: 0.5). Try ε ≥ 0.05 with more PGD steps.`;
+      }
+    } else {
+      const prot = data.metrics.protected;
+      v.className   = prot ? 'verdict success' : 'verdict warning';
+      icon.textContent = prot ? '✅' : '⚠️';
+      title.textContent = prot ? 'Model Successfully Confused' : 'Classification Unchanged';
+      sub.textContent = `${data.metrics.orig_class_name || ''} → ${data.metrics.adv_class_name || ''}`;
+    }
+  }
+
+  /* ── Metrics ────────────────────────────────────────────── */
+  function renderMetrics(data) {
+    const grid = $('metricsGrid');
+    const m    = data.metrics;
+    grid.innerHTML = '';
+
+    const cards = [];
+
+    if (data.model_type === 'facenet') {
+      const sim = m.cosine_similarity;
+      cards.push({
+        label: 'Cosine Similarity', sub: '1.0 = same person, 0 = unknown',
+        value: sim.toFixed(3),
+        cls: sim < 0.5 ? 'good' : sim < 0.7 ? 'warn' : 'bad'
+      });
+      cards.push({
+        label: 'Identity Distance', sub: '>0.5 = cloaked',
+        value: m.identity_distance.toFixed(3),
+        cls: m.identity_distance > 0.5 ? 'good' : 'warn'
+      });
+    } else {
+      cards.push({
+        label: 'Original Conf', sub: m.orig_class_name || '',
+        value: `${(m.orig_confidence * 100).toFixed(1)}%`, cls: ''
+      });
+      cards.push({
+        label: 'Adversarial Conf', sub: m.adv_class_name || '',
+        value: `${(m.adv_confidence * 100).toFixed(1)}%`,
+        cls: m.adv_confidence < m.orig_confidence ? 'good' : 'bad'
+      });
+    }
+
+    const psnr = data.psnr;
+    cards.push({
+      label: 'PSNR', sub: '>40 dB = visually identical',
+      value: `${psnr} dB`,
+      cls: psnr > 40 ? 'good' : psnr > 30 ? 'warn' : 'bad'
+    });
+    cards.push({
+      label: 'Epsilon', sub: 'L∞ budget used',
+      value: data.epsilon.toFixed(3), cls: ''
+    });
+    cards.push({
+      label: 'PGD Steps', sub: 'Attack iterations',
+      value: data.steps, cls: ''
+    });
+    cards.push({
+      label: 'Face Detected', sub: data.face_detected ? 'MTCNN aligned crop' : 'Full image fallback',
+      value: data.face_detected ? 'YES' : 'NO',
+      cls: data.face_detected ? 'good' : 'warn'
+    });
+
+    for (const c of cards) {
+      grid.innerHTML += `
+        <div class="metric-card ${c.cls}">
+          <div class="m-label">${c.label}</div>
+          <div class="m-value ${c.cls}">${c.value}</div>
+          <div class="m-sub">${c.sub}</div>
+        </div>`;
+    }
+
+    // Similarity bar
+    const simSection = $('simBarSection');
+    if (data.model_type === 'facenet') {
+      const sim = m.cosine_similarity;
+      simSection.style.display = 'block';
+      $('simBarLabel').textContent = sim.toFixed(3);
+      const fill = $('simBarFill');
+      fill.style.width = `${sim * 100}%`;
+      fill.style.background = sim < 0.5
+        ? 'var(--accent)'
+        : sim < 0.7 ? 'var(--yellow)' : 'var(--red)';
+    } else {
+      simSection.style.display = 'none';
+    }
+  }
+
+  /* ── Multi-model verify results ─────────────────────────── */
+  function renderVerifyResults(results) {
+    const panel = $('verifyPanel');
+    const grid  = $('verifyGrid');
+    if (!results || results.length === 0) {
+      panel.style.display = 'none';
+      return;
+    }
+    panel.style.display = 'block';
+    grid.innerHTML = '';
+
+    const totalProtected = results.filter(r => r.protected).length;
+    // Separate face models from feature models for different threshold notes
+    const isFaceModel = name => name.includes('FaceNet');
+
+    results.forEach(r => {
+      const hasError  = !!r.error;
+      const protected_ = !hasError && r.protected;
+      const cls = hasError ? '' : (protected_ ? 'good' : 'bad');
+
+      let valueHTML = '';
+      let subHTML   = '';
+
+      if (hasError) {
+        // Show a user-friendly message — common cause is weights not downloadable in this env
+        const msg = r.error.includes('NaN') || r.error.includes('unavailable')
+          ? 'Weights need internet on first run'
+          : r.error.slice(0, 70);
+        valueHTML = `<div class="m-value" style="font-size:0.9rem;color:var(--muted2);">Unavailable</div>`;
+        subHTML   = `<div class="m-sub" style="color:var(--muted);">${msg}</div>`;
+      } else if (r.cosine_similarity !== undefined) {
+        const sim     = r.cosine_similarity;
+        const thresh  = isFaceModel(r.model) ? 0.5 : 0.85;
+        const threshNote = isFaceModel(r.model)
+          ? 'threshold: 0.5 (face recognition)'
+          : 'threshold: 0.85 (deep features)';
+        valueHTML = `<div class="m-value ${cls}">${sim.toFixed(3)}</div>`;
+        subHTML   = `<div class="m-sub">
+          ${protected_ ? '✅ Identity disrupted' : '⚠️ Still similar'}<br>
+          <span style="color:var(--muted);font-size:0.55rem;">${threshNote}</span>
+        </div>`;
+      } else {
+        valueHTML = `<div class="m-value" style="color:var(--muted2);">—</div>`;
+        subHTML   = `<div class="m-sub">No result</div>`;
+      }
+
+      grid.innerHTML += `
+        <div class="metric-card ${cls}">
+          <div class="m-label">${r.model}</div>
+          ${valueHTML}
+          ${subHTML}
+        </div>`;
+    });
+
+    // Summary card
+    const sumCls = totalProtected >= 4 ? 'good' : totalProtected >= 2 ? 'warn' : 'bad';
+    grid.innerHTML += `
+      <div class="metric-card ${sumCls}"
+           style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
+        <div class="m-label">Transfer rate</div>
+        <div class="m-value ${sumCls}" style="font-size:2rem;">${totalProtected}/${results.length}</div>
+        <div class="m-sub">models disrupted</div>
+      </div>`;
+  }
+
+  /* ── Download ────────────────────────────────────────────── */
+  $('downloadBtn').addEventListener('click', async () => {
+    if (!lastProtectedB64) return;
+    const resp = await fetch('/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image_b64: lastProtectedB64 })
+    });
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = 'protected.png';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+</script>
+</body>
+</html>
