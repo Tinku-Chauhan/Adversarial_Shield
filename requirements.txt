@@ -1,21 +1,7 @@
-# Adversarial Shield v3 — Dependencies
-# Install: pip install -r requirements.txt
-
-# Deep learning core
-torch>=2.2.0
-torchvision>=0.17.0
-
-# Face detection + FaceNet (InceptionResnetV1 + MTCNN)
+torch>=2.0.0
+torchvision>=0.15.0
 facenet-pytorch>=2.5.3
-
-# Web UI
-flask>=3.1.0
-
-# Image handling
-pillow>=10.3.0
-
-# Visualisation
-matplotlib>=3.9.0
-
-# Numerical
-numpy>=1.26.0
+flask>=3.0.0
+pillow>=10.0.0
+matplotlib>=3.7.0
+numpy>=1.24.0

@@ -20,7 +20,7 @@ from PIL import Image
 
 from face_model import (load_face_model, load_detector, preprocess_for_facenet,
                         get_denorm_renorm, load_class_labels, IMAGENET_MEAN, IMAGENET_STD)
-from attack     import protect_image, epsilon_sweep, compute_psnr
+from attack     import protect_image, protect_full_image, epsilon_sweep, compute_psnr
 from visualize  import show_comparison, show_sweep_dashboard
 
 
@@ -59,8 +59,8 @@ def protect(args):
         sys.exit(f"Error: file not found — {args.image}")
 
     print(f"[3/5] Loading     : {args.image}")
-    pil_original                        = Image.open(args.image).convert("RGB")
-    image_tensor, face_pil, face_detected = preprocess_for_facenet(
+    pil_original = Image.open(args.image).convert("RGB")
+    image_tensor, face_pil, face_detected, pil_original, face_box = preprocess_for_facenet(
         pil_original, detector, device
     )
 
@@ -103,21 +103,22 @@ def protect(args):
 
     # ── Single epsilon ──────────────────────────────────────────────────
     print(f"[4/5] Attacking    : ε = {args.epsilon}, {attack_label}")
-    perturbed, metrics = protect_image(
-        model, model_type, image_tensor,
+    protected_pil, face_attacked_pil, perturbed_tensor, metrics = protect_full_image(
+        model, model_type, pil_original,
         denorm, renorm, args.epsilon, args.steps, device,
         target_label=target_label,
         use_fgsm=args.fgsm,
+        face_tensor=image_tensor,
+        face_box=face_box,
     )
 
-    pil_protected = tensor_to_pil(perturbed, denorm)
-    pil_protected.save(args.output)
-    print(f"[5/5] Saved        : {args.output}")
+    protected_pil.save(args.output)
+    print(f"[5/5] Saved        : {args.output}  ({pil_original.size[0]}×{pil_original.size[1]}  full image)")
 
     _print_results(metrics, model_type, class_names)
 
     if not args.no_viz:
-        show_comparison(face_pil, pil_protected, metrics, args.epsilon, model_type)
+        show_comparison(face_pil, face_attacked_pil, metrics, args.epsilon, model_type)
 
 
 def _print_results(metrics, model_type, class_names):
